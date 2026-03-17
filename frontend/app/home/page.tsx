@@ -39,7 +39,7 @@ export default function HomePage() {
   const [recentInterviews, setRecentInterviews] = useState<Interview[]>([]);
   const [averageScore, setAverageScore] = useState(0);
   const [profile] = useState(mockUser);
-  const [loading] = useState(false);
+  const [loadingInterviews, setLoadingInterviews] = useState(false);
   const user = mockUser;
 
   useEffect(() => {
@@ -48,9 +48,19 @@ export default function HomePage() {
 
   const loadInterviews = async () => {
     try {
+      setLoadingInterviews(true);
       setRecentInterviews(mockRecentInterviews);
+      const avg =
+        mockRecentInterviews.length === 0
+          ? 0
+          : Math.round(
+              mockRecentInterviews.reduce((sum, i) => sum + (i.totalScore ?? 0), 0) / mockRecentInterviews.length
+            );
+      setAverageScore(avg);
     } catch (error) {
       console.error('Error loading interviews:', error);
+    } finally {
+      setLoadingInterviews(false);
     }
   };
 
@@ -162,7 +172,7 @@ export default function HomePage() {
                 <h3 className="text-xl font-bold text-gray-900">Recent Interviews</h3>
               </div>
 
-              {loading ? (
+              {loadingInterviews ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
                 </div>

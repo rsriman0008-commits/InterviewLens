@@ -3,6 +3,33 @@ import { ELEVENLABS_API_KEY } from './config';
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1';
 
 export const voiceService = {
+  // Browser TTS fallback (fast, no API keys)
+  speakText: async (text: string, opts?: { rate?: number; pitch?: number; volume?: number }) => {
+    if (typeof window === 'undefined') return;
+    const synth = window.speechSynthesis;
+    if (!synth || typeof SpeechSynthesisUtterance === 'undefined') {
+      throw new Error('Speech Synthesis API not supported');
+    }
+
+    // Cancel any ongoing speech so the latest question is heard immediately
+    try {
+      synth.cancel();
+    } catch {
+      // ignore
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = opts?.rate ?? 1.15;
+    utterance.pitch = opts?.pitch ?? 1.0;
+    utterance.volume = opts?.volume ?? 1.0;
+
+    await new Promise<void>((resolve, reject) => {
+      utterance.onend = () => resolve();
+      utterance.onerror = () => reject(new Error('Error speaking text'));
+      synth.speak(utterance);
+    });
+  },
+
   // Text to speech using ElevenLabs
   textToSpeech: async (text: string, voiceId = 'pNInz6obpgDQGcFmaJgB') => {
     try {

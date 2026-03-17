@@ -5,6 +5,10 @@ from config import config
 def init_gemini():
     """Initialize Gemini API"""
     try:
+        if not config.GEMINI_API_KEY:
+            print("Gemini API key not set; using local fallback questions")
+            return
+
         genai.configure(api_key=config.GEMINI_API_KEY)
         print("Gemini API initialized successfully")
     except Exception as e:
@@ -12,9 +16,69 @@ def init_gemini():
 
 init_gemini()
 
+def _fallback_question(role: str, phase: str, question_number: int = 1, user_profile: dict | None = None) -> dict:
+    role_name = (role or "Software Engineer").strip()
+
+    if phase == "icebreaker":
+        questions = [
+            f"Tell me about yourself and what attracted you to {role_name}.",
+            "Describe a project you're proud of. What trade-offs did you make and why?",
+            "When you get stuck debugging, what is your step-by-step approach?",
+        ]
+        q = questions[(question_number - 1) % len(questions)]
+        return {
+            "question": q,
+            "hints": [
+                "Keep it structured: context -> actions -> results.",
+                "Mention one concrete example and measurable impact.",
+                "Be concise; aim for 60-90 seconds.",
+            ],
+            "expectedTopics": ["communication", "experience", "reflection"],
+        }
+
+    if phase == "introduction":
+        return {
+            "introduction": (
+                f"Today’s interview is for a {role_name} role. We’ll start with a couple of warm-up questions, "
+                "then move into 3 coding problems. As you solve, explain your thinking, assumptions, and complexity."
+            )
+        }
+
+    # coding / wrapup default to coding-style prompts
+    coding_bank = [
+        {
+            "question": (
+                "Given a string, return the length of the longest substring without repeating characters.\n"
+                "Example: input = \"abcabcbb\" → output = 3 (\"abc\")."
+            ),
+            "hints": ["Use a sliding window.", "Track last-seen indices in a map.", "Update the left bound when repeated."],
+            "expectedTopics": ["hash map", "two pointers", "sliding window"],
+        },
+        {
+            "question": (
+                "Given an array of integers, return indices of the two numbers such that they add up to a target.\n"
+                "Assume exactly one solution and you may not use the same element twice."
+            ),
+            "hints": ["Use a hash map from value → index.", "Check complement = target - x as you iterate."],
+            "expectedTopics": ["hash map", "arrays"],
+        },
+        {
+            "question": (
+                "Implement a function to validate if a string of parentheses is valid.\n"
+                "Valid strings: \"()[]{}\", \"([{}])\". Invalid: \"(]\", \"([)]\"."
+            ),
+            "hints": ["Use a stack.", "Push opening brackets, match on closing.", "Fail fast on mismatches."],
+            "expectedTopics": ["stack", "parsing"],
+        },
+    ]
+    return coding_bank[(question_number - 1) % len(coding_bank)]
+
 def generate_question(role: str, phase: str, question_number: int = 1, user_profile: dict = None) -> dict:
     """Generate interview questions using Gemini"""
     try:
+        if not config.GEMINI_API_KEY:
+            return _fallback_question(role=role, phase=phase, question_number=question_number, user_profile=user_profile)
+
         model = genai.GenerativeModel('gemini-1.5-flash')
         
         if phase == "icebreaker":
@@ -67,11 +131,8 @@ Format: {{"question": "...", "hints": [...], "expectedTopics": [...], "example":
         return result
     except Exception as e:
         print(f"Error generating question: {e}")
-        return {
-            "question": "System error generating question. Please try again.",
-            "hints": [],
-            "expectedTopics": []
-        }
+        # Keep localhost usable even if Gemini fails (quota, network, invalid key, etc.)
+        return _fallback_question(role=role, phase=phase, question_number=question_number, user_profile=user_profile)
 
 def evaluate_code(code: str, question: str, language: str, role: str) -> dict:
     """Evaluate submitted code using Gemini"""

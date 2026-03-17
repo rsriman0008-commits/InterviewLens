@@ -45,6 +45,8 @@ export default function InterviewSessionPage() {
   const [isListening, setIsListening] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const interviewRef = useRef<string | null>(null);
+  const isSubmittingRef = useRef(false);
+  const isLoadingQuestionRef = useRef(false);
 
   // Initialize interview
   useEffect(() => {
@@ -72,7 +74,7 @@ export default function InterviewSessionPage() {
     if (currentPhase && interview) {
       loadQuestion();
     }
-  }, [currentPhase]);
+  }, [currentPhase, currentQuestionIndex, interview]);
 
   const initializeInterview = async () => {
     try {
@@ -118,7 +120,11 @@ export default function InterviewSessionPage() {
         const audioBlob = await apiService.textToSpeech(welcomeText);
         await voiceService.playAudio(audioBlob);
       } catch (error) {
-        console.log('Voice not available, continuing with text');
+        try {
+          await voiceService.speakText(welcomeText);
+        } catch {
+          // ignore
+        }
       }
 
       setLoading(false);
@@ -129,7 +135,9 @@ export default function InterviewSessionPage() {
   };
 
   const loadQuestion = async () => {
+    if (isLoadingQuestionRef.current) return;
     try {
+      isLoadingQuestionRef.current = true;
       setLoading(true);
 
       const response = await apiService.generateQuestion({
@@ -164,14 +172,48 @@ export default function InterviewSessionPage() {
         const audioBlob = await apiService.textToSpeech(newQuestion.question);
         await voiceService.playAudio(audioBlob);
       } catch (error) {
-        console.log('Voice not available');
+        try {
+          await voiceService.speakText(newQuestion.question);
+        } catch {
+          // ignore
+        }
       }
       setAiIsSpeaking(false);
 
       setLoading(false);
     } catch (error) {
-      toast.error('Failed to load question');
+      // Frontend fallback so the interview keeps moving even if API/TTS flakes.
+      const fallbackText =
+        currentPhase === 'introduction'
+          ? `Today’s interview is for a ${selectedRole || 'Software Engineer'} role. We'll do a couple of warm-up questions, then 3 coding problems.`
+          : currentPhase === 'icebreaker'
+          ? `Tell me about yourself and what attracted you to ${selectedRole || 'this role'}.`
+          : 'Write a function to return the length of the longest substring without repeating characters.';
+
+      const fallbackQuestion: CodeQuestion = {
+        id: `q-${Date.now()}`,
+        questionNumber: currentQuestionIndex + 1,
+        phase: currentPhase || 'icebreaker',
+        question: fallbackText,
+        hints: [],
+        expectedTopics: [],
+      };
+
+      addQuestion(fallbackQuestion);
+      setCurrentQuestion(fallbackQuestion);
+
+      setAiIsSpeaking(true);
+      try {
+        await voiceService.speakText(fallbackQuestion.question);
+      } catch {
+        // ignore
+      }
+      setAiIsSpeaking(false);
+
+      toast.error('Failed to load question (using fallback)');
       setLoading(false);
+    } finally {
+      isLoadingQuestionRef.current = false;
     }
   };
 
@@ -211,7 +253,12 @@ export default function InterviewSessionPage() {
             await voiceService.playAudio(audioBlob);
             setTranscript((prev) => [...prev, response]);
           } catch (error) {
-            console.log('Voice not available');
+            try {
+              await voiceService.speakText(response);
+            } catch {
+              // ignore
+            }
+            setTranscript((prev) => [...prev, response]);
           }
           setAiIsSpeaking(false);
         }
@@ -237,13 +284,17 @@ export default function InterviewSessionPage() {
   };
 
   const handleSubmitAnswer = async () => {
-    if (!code.trim() && currentPhase !== 'icebreaker') {
-      toast.error('Please enter code before submitting');
-      return;
-    }
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
 
-    setLoading(true);
     try {
+      // Only require code when actually in the coding phase
+      if (currentPhase === 'coding' && !code.trim()) {
+        toast.error('Please enter code before submitting');
+        return;
+      }
+
+      setLoading(true);
       // Evaluate code if in coding phase
       if (currentPhase === 'coding' && code.trim()) {
         const evaluation = await apiService.evaluateCode({
@@ -298,6 +349,8 @@ export default function InterviewSessionPage() {
     } catch (error) {
       toast.error('Failed to submit answer');
       setLoading(false);
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 
