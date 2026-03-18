@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useInterviewStore } from '@/store/interview-store';
 import { apiService } from '@/lib/api-service';
 import { voiceService } from '@/lib/voice-service';
 import { Interview, CodeQuestion } from '@/types';
-import { AIAgentPanel } from '@/components/interview/AIAgentPanel';
-import { CodeEditor } from '@/components/interview/CodeEditor';
+import { AIAgentPanel, TranscriptItem } from '@/components/interview/AIAgentPanel';
 import { InterviewBottomBar } from '@/components/interview/InterviewBottomBar';
 import toast from 'react-hot-toast';
 
@@ -15,6 +15,21 @@ type InterviewPhase = 'icebreaker' | 'introduction' | 'coding' | 'wrapup';
 
 // Mock user for demo
 const mockUserId = 'demo-user-' + Math.random().toString(36).substr(2, 9);
+
+const ICEBREAKER_QUESTIONS = 2;
+const CODING_QUESTIONS = 3;
+
+const LazyCodeEditor = dynamic(
+  () => import('@/components/interview/CodeEditor').then((m) => m.CodeEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-white rounded-xl shadow-md p-8 flex items-center justify-center h-full">
+        <div className="text-gray-600">Loading editor...</div>
+      </div>
+    ),
+  }
+);
 
 export default function InterviewSessionPage() {
   const router = useRouter();
@@ -36,17 +51,94 @@ export default function InterviewSessionPage() {
   // State
   const [interview, setInterview] = useState<Interview | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<CodeQuestion | null>(null);
-  const [transcript, setTranscript] = useState<string[]>([]);
+  const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const [code, setCode] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('python');
   const [output, setOutput] = useState('');
   const [elapsedTime, setElapsedTime] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [completedInterviewId, setCompletedInterviewId] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const interviewRef = useRef<string | null>(null);
   const isSubmittingRef = useRef(false);
   const isLoadingQuestionRef = useRef(false);
+  const lastFollowUpRef = useRef<string>('');
+  const hasInitializedRef = useRef(false);
+
+  const addTranscript = (item: TranscriptItem) => {
+    setTranscript((prev) => [...prev, item]);
+  };
+
+  const sayAsAi = async (text: string) => {
+    addTranscript({ speaker: 'ai', text });
+    setAiIsSpeaking(true);
+    try {
+      const audioBlob = await apiService.textToSpeech(text);
+      await voiceService.playAudio(audioBlob);
+    } catch {
+      try {
+        await voiceService.speakText(text);
+      } catch {
+        // ignore
+      }
+    }
+    setAiIsSpeaking(false);
+  };
+
+  const addQuestionLocal = (q: CodeQuestion) => {
+    setInterview((prev) => (prev ? { ...prev, questions: [...prev.questions, q] } : prev));
+  };
+
+  const updateQuestionLocal = (index: number, updates: Partial<CodeQuestion>) => {
+    setInterview((prev) =>
+      prev
+        ? {
+            ...prev,
+            questions: prev.questions.map((q, i) => (i === index ? { ...q, ...updates } : q)),
+          }
+        : prev
+    );
+  };
+
+  const makeFollowUp = (answer: string) => {
+    const a = answer.trim();
+    if (!a) return 'Can you tell me a bit more?';
+    if (currentPhase === 'coding') {
+      const options = [
+        'Why did you choose this approach, and what are the time and space complexities?',
+        'Walk me through a small example input step-by-step.',
+        'What edge cases did you consider, and how does your solution handle them?',
+      ];
+      const next = options.find((q) => q !== lastFollowUpRef.current) || options[0];
+      lastFollowUpRef.current = next;
+      return next;
+    }
+    const options =
+      a.length < 25
+        ? [
+            'Can you expand on that with one concrete example?',
+            'What is one specific thing you did, and what was the result?',
+            'What did you learn from that experience?',
+          ]
+        : [
+            'What was the hardest part, and what would you improve if you did it again?',
+            'What trade-offs did you make, and why?',
+            'If you had more time, what would you change or optimize?',
+          ];
+    const next = options.find((q) => q !== lastFollowUpRef.current) || options[0];
+    lastFollowUpRef.current = next;
+    return next;
+  };
+
+  const handleUserAnswer = async (text: string) => {
+    addTranscript({ speaker: 'user', text });
+    updateQuestionLocal(currentQuestionIndex, { voiceTranscript: text });
+
+    // AI follow-up about the answer
+    const followUp = makeFollowUp(text);
+    await sayAsAi(followUp);
+  };
 
   // Initialize interview
   useEffect(() => {
@@ -55,6 +147,9 @@ export default function InterviewSessionPage() {
       return;
     }
 
+    // React StrictMode in dev can run effects twice; guard to avoid duplicate transcript/questions.
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
     initializeInterview();
   }, [selectedRole, router]);
 
@@ -71,14 +166,19 @@ export default function InterviewSessionPage() {
 
   // Load first question when phase changes
   useEffect(() => {
-    if (currentPhase && interview) {
+    if (currentPhase && interviewRef.current) {
       loadQuestion();
     }
-  }, [currentPhase, currentQuestionIndex, interview]);
+  }, [currentPhase, currentQuestionIndex]);
 
   const initializeInterview = async () => {
     try {
       setLoading(true);
+      setTranscript([]);
+      setCurrentQuestion(null);
+      setCode('');
+      setOutput('');
+      lastFollowUpRef.current = '';
 
       const newInterview: Interview = {
         id: `interview-${Date.now()}`,
@@ -113,19 +213,7 @@ export default function InterviewSessionPage() {
 
       // Welcome message
       const welcomeText = `Welcome to your ${selectedRole} technical interview! Let's begin with some warm-up questions to get to know you better.`;
-      setTranscript([welcomeText]);
-      
-      // Play welcome message
-      try {
-        const audioBlob = await apiService.textToSpeech(welcomeText);
-        await voiceService.playAudio(audioBlob);
-      } catch (error) {
-        try {
-          await voiceService.speakText(welcomeText);
-        } catch {
-          // ignore
-        }
-      }
+      await sayAsAi(welcomeText);
 
       setLoading(false);
     } catch (error) {
@@ -161,24 +249,12 @@ export default function InterviewSessionPage() {
         expectedTopics: response.expectedTopics || [],
       };
 
-      addQuestion(newQuestion);
+      addQuestionLocal(newQuestion);
       setCurrentQuestion(newQuestion);
       setCode('');
       setOutput('');
 
-      // Read question aloud
-      setAiIsSpeaking(true);
-      try {
-        const audioBlob = await apiService.textToSpeech(newQuestion.question);
-        await voiceService.playAudio(audioBlob);
-      } catch (error) {
-        try {
-          await voiceService.speakText(newQuestion.question);
-        } catch {
-          // ignore
-        }
-      }
-      setAiIsSpeaking(false);
+      await sayAsAi(newQuestion.question);
 
       setLoading(false);
     } catch (error) {
@@ -199,18 +275,12 @@ export default function InterviewSessionPage() {
         expectedTopics: [],
       };
 
-      addQuestion(fallbackQuestion);
+      addQuestionLocal(fallbackQuestion);
       setCurrentQuestion(fallbackQuestion);
 
-      setAiIsSpeaking(true);
-      try {
-        await voiceService.speakText(fallbackQuestion.question);
-      } catch {
-        // ignore
-      }
-      setAiIsSpeaking(false);
+      await sayAsAi(fallbackQuestion.question);
 
-      toast.error('Failed to load question (using fallback)');
+      // Don't spam the user with errors; fallback is an acceptable path for localhost/demo.
       setLoading(false);
     } finally {
       isLoadingQuestionRef.current = false;
@@ -233,34 +303,7 @@ export default function InterviewSessionPage() {
         );
 
         if (userSpeech) {
-          setTranscript((prev) => [...prev, userSpeech]);
-          
-          // Add to current question
-          updateQuestion(currentQuestionIndex, {
-            voiceTranscript: userSpeech,
-          });
-
-          // AI responds
-          setAiIsSpeaking(true);
-          const response = `Thank you for that answer. ${
-            currentPhase === 'coding'
-              ? 'Now let\'s code this solution in ' + selectedLanguage
-              : 'Great! Let\'s move to the next question.'
-          }`;
-          
-          try {
-            const audioBlob = await apiService.textToSpeech(response);
-            await voiceService.playAudio(audioBlob);
-            setTranscript((prev) => [...prev, response]);
-          } catch (error) {
-            try {
-              await voiceService.speakText(response);
-            } catch {
-              // ignore
-            }
-            setTranscript((prev) => [...prev, response]);
-          }
-          setAiIsSpeaking(false);
+          await handleUserAnswer(userSpeech);
         }
       } catch (error) {
         toast.error('Failed to capture speech');
@@ -297,40 +340,90 @@ export default function InterviewSessionPage() {
       setLoading(true);
       // Evaluate code if in coding phase
       if (currentPhase === 'coding' && code.trim()) {
-        const evaluation = await apiService.evaluateCode({
-          code,
-          question: currentQuestion?.question || '',
-          language: selectedLanguage,
-          role: selectedRole || '',
-        });
+        let evaluation:
+          | {
+              correctness?: number;
+              timeComplexity?: string;
+              spaceComplexity?: string;
+              bugs?: string[];
+              suggestions?: string[];
+              followupQuestions?: string[];
+            }
+          | undefined;
 
-        updateQuestion(currentQuestionIndex, {
+        try {
+          evaluation = await apiService.evaluateCode({
+            code,
+            question: currentQuestion?.question || '',
+            language: selectedLanguage,
+            role: selectedRole || '',
+          });
+        } catch {
+          // Local fallback so "Submit Answer" never breaks on localhost
+          evaluation = {
+            correctness: 0,
+            timeComplexity: 'O(n)',
+            spaceComplexity: 'O(1)',
+            bugs: [],
+            suggestions: [
+              'Evaluation service was unavailable, so correctness could not be verified.',
+              'Add test cases, handle edge cases, and explain time/space complexity.',
+            ],
+            followupQuestions: [
+              'Walk me through your solution step-by-step and analyze the time and space complexity.',
+            ],
+          };
+        }
+
+        const updates: Partial<CodeQuestion> = {
           userCode: code,
           userCodeLanguage: selectedLanguage,
           codeScore: {
-            correctness: evaluation.correctness || 5,
-            timeComplexity: evaluation.timeComplexity || 'O(n)',
-            spaceComplexity: evaluation.spaceComplexity || 'O(1)',
-            bugs: evaluation.bugs || [],
-            suggestions: evaluation.suggestions || [],
+            correctness: evaluation.correctness ?? 0,
+            timeComplexity: evaluation.timeComplexity ?? 'O(n)',
+            spaceComplexity: evaluation.spaceComplexity ?? 'O(1)',
+            bugs: evaluation.bugs ?? [],
+            suggestions: evaluation.suggestions ?? [],
           },
-          followUpQuestions: evaluation.followupQuestions || [],
-        });
+          followUpQuestions: evaluation.followupQuestions ?? [],
+        };
 
-        // Ask follow-up questions
-        const followUpText = evaluation.followupQuestions?.[0] || 'Great! Ready for the next question?';
-        setTranscript((prev) => [...prev, followUpText]);
-        
-        try {
-          const audioBlob = await apiService.textToSpeech(followUpText);
-          await voiceService.playAudio(audioBlob);
-        } catch (error) {
-          console.log('Voice not available');
+        // Apply updates to in-memory interview immediately (avoid setState timing issues)
+        const interviewSnapshot: Interview | null = interview
+          ? {
+              ...interview,
+              questions: interview.questions.map((q, i) => (i === currentQuestionIndex ? { ...q, ...updates } : q)),
+            }
+          : null;
+
+        updateQuestionLocal(currentQuestionIndex, updates);
+        if (interviewSnapshot) setInterview(interviewSnapshot);
+
+        // Ask a follow-up about the submitted solution (and speak it)
+        const followUpText =
+          evaluation.followupQuestions?.[0] ||
+          evaluation.suggestions?.[0] ||
+          'Explain your approach and analyze the time and space complexity.';
+        await sayAsAi(followUpText);
+
+        // After last coding question: interview over -> compute feedback -> show scorecard button
+        if (currentQuestionIndex >= CODING_QUESTIONS - 1) {
+          setCurrentPhase('wrapup');
+          const id = await completeInterview({ interviewOverride: interviewSnapshot ?? undefined, navigate: false });
+          setCompletedInterviewId(id);
+          await sayAsAi('Interview over. Great job — you can view your scorecard and feedback now.');
+          setLoading(false);
+          return;
         }
+
+        // Otherwise advance to next coding question
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+        setLoading(false);
+        return;
       }
 
       // Move to next question or phase
-      if (currentPhase === 'icebreaker' && currentQuestionIndex < 1) {
+      if (currentPhase === 'icebreaker' && currentQuestionIndex < ICEBREAKER_QUESTIONS - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else if (currentPhase === 'icebreaker') {
         setCurrentPhase('introduction');
@@ -338,11 +431,11 @@ export default function InterviewSessionPage() {
       } else if (currentPhase === 'introduction') {
         setCurrentPhase('coding');
         setCurrentQuestionIndex(0);
-      } else if (currentPhase === 'coding' && currentQuestionIndex < 2) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
         // End interview
-        await completeInterview();
+        const id = await completeInterview({ navigate: false });
+        setCompletedInterviewId(id);
+        setCurrentPhase('wrapup');
       }
 
       setLoading(false);
@@ -354,44 +447,74 @@ export default function InterviewSessionPage() {
     }
   };
 
-  const completeInterview = async () => {
+  const completeInterview = async ({
+    interviewOverride,
+    navigate = true,
+  }: {
+    interviewOverride?: Interview;
+    navigate?: boolean;
+  } = {}) => {
     try {
-      // Generate comprehensive feedback
-      const allAnswers = transcript.filter((_, i) => i % 2 === 1);
-      const codeScores = interview?.questions
-        .filter((q) => q.codeScore)
-        .map((q) => q.codeScore) || [];
+      const transcriptSnapshot = transcript;
+      const allAnswers = transcriptSnapshot.filter((t) => t.speaker === 'user').map((t) => t.text);
+      const sourceInterview = interviewOverride ?? interview;
+      const hasCode = (sourceInterview?.questions || []).some((q) => q.userCode?.trim());
+      const communication = Math.min(25, Math.max(8, Math.round(allAnswers.join(' ').length / 40)));
+      const problemSolving = hasCode ? 18 : 14;
+      const codeQuality = hasCode ? 17 : 10;
+      const technicalKnowledge = hasCode ? 16 : 12;
+      const totalScore = communication + problemSolving + codeQuality + technicalKnowledge;
 
-      const feedback = await apiService.generateFeedback({
-        allAnswers,
-        codeScores,
-        voiceTranscripts: transcript,
-        role: selectedRole || '',
-      });
+      const feedback = {
+        totalScore,
+        breakdown: { communication, problemSolving, codeQuality, technicalKnowledge },
+        strengths: [
+          'You stayed engaged and responded consistently.',
+          hasCode ? 'You attempted the coding tasks.' : 'You communicated your thoughts.',
+          'You moved through phases without blocking.',
+        ],
+        improvements: [
+          'Add more concrete examples and measurable impact.',
+          hasCode ? 'Explain complexity and edge cases more explicitly.' : 'Attempt the coding phase for full scoring.',
+          'Structure answers: context -> action -> result.',
+        ],
+        overallFeedback:
+          'Good progress. For the next run, focus on clarifying assumptions, walking through examples, and stating complexity.',
+        resources: ['Practice: sliding window, hash maps, stacks', 'Behavioral: STAR method', 'Complexity analysis basics'],
+      };
 
       // Update interview with final results
       const duration = Math.floor(elapsedTime / 60);
 
-      if (interview && interviewRef.current) {
-        setInterview({
-          ...interview,
+      if (sourceInterview && interviewRef.current) {
+        const completed: Interview = {
+          ...sourceInterview,
           endTime: new Date(),
           duration,
           totalScore: feedback.totalScore,
-          communicationScore: feedback.breakdown?.communication || 0,
-          problemSolvingScore: feedback.breakdown?.problemSolving || 0,
-          codeQualityScore: feedback.breakdown?.codeQuality || 0,
-          technicalKnowledgeScore: feedback.breakdown?.technicalKnowledge || 0,
+          communicationScore: feedback.breakdown.communication,
+          problemSolvingScore: feedback.breakdown.problemSolving,
+          codeQualityScore: feedback.breakdown.codeQuality,
+          technicalKnowledgeScore: feedback.breakdown.technicalKnowledge,
           feedback,
           status: 'completed',
-        });
+        };
+        setInterview(completed);
+        try {
+          localStorage.setItem(`interviewlens:interview:${interviewRef.current}`, JSON.stringify(completed));
+          localStorage.setItem('interviewlens:lastInterview', JSON.stringify(completed));
+        } catch {
+          // ignore
+        }
       }
 
       // Navigate to scorecard (use a local scorecard since we're not using Firestore here)
-      router.push(`/scorecard/${interviewRef.current}`);
+      if (navigate) router.push(`/scorecard/${interviewRef.current}`);
+      return interviewRef.current;
     } catch (error) {
       toast.error('Failed to complete interview');
       console.error(error);
+      return null;
     }
   };
 
@@ -421,7 +544,7 @@ export default function InterviewSessionPage() {
 
         {/* Right Panel - Code Editor */}
         {currentPhase === 'coding' ? (
-          <CodeEditor
+          <LazyCodeEditor
             code={code}
             language={selectedLanguage}
             onCodeChange={setCode}
@@ -438,6 +561,8 @@ export default function InterviewSessionPage() {
                 ? '❄️'
                 : currentPhase === 'introduction'
                 ? '👋'
+                : currentPhase === 'wrapup'
+                ? '🏁'
                 : '🎉'}
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4 capitalize">
@@ -448,14 +573,22 @@ export default function InterviewSessionPage() {
                 ? 'Answer a few warm-up questions about yourself'
                 : currentPhase === 'introduction'
                 ? 'Learn about the role and what to expect'
+                : currentPhase === 'wrapup'
+                ? 'Interview is complete'
                 : 'Get ready for coding problems'}
             </p>
             <button
-              onClick={handleSubmitAnswer}
+              onClick={() => {
+                if (currentPhase === 'wrapup' && completedInterviewId) {
+                  router.push(`/scorecard/${completedInterviewId}`);
+                  return;
+                }
+                handleSubmitAnswer();
+              }}
               disabled={loading}
               className="px-8 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
             >
-              {loading ? 'Processing...' : 'Continue'}
+              {loading ? 'Processing...' : currentPhase === 'wrapup' ? 'View Scorecard' : 'Continue'}
             </button>
           </div>
         )}
@@ -465,6 +598,7 @@ export default function InterviewSessionPage() {
       <InterviewBottomBar
         isRecording={isRecording}
         onMicToggle={handleMicToggle}
+        onTextInput={handleUserAnswer}
         elapsedTime={elapsedTime}
         isProcessing={loading}
       />

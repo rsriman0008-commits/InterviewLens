@@ -1,5 +1,5 @@
-import React from 'react';
-import { Mic, MicOff, MessageSquare, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mic, MicOff, MessageSquare, Clock, Send } from 'lucide-react';
 import { formatDuration } from '@/lib/utils';
 
 interface InterviewBottomBarProps {
@@ -14,8 +14,18 @@ export const InterviewBottomBar: React.FC<InterviewBottomBarProps> = ({
   isRecording,
   onMicToggle,
   elapsedTime,
+  onTextInput,
   isProcessing,
 }) => {
+  const [text, setText] = useState('');
+
+  const submit = () => {
+    const trimmed = text.trim();
+    if (!trimmed || isProcessing) return;
+    onTextInput?.(trimmed);
+    setText('');
+  };
+
   return (
     <div className="bg-white border-t border-gray-200 p-4">
       <div className="flex items-center justify-between gap-4">
@@ -49,8 +59,22 @@ export const InterviewBottomBar: React.FC<InterviewBottomBarProps> = ({
             type="text"
             placeholder="Or type your answer here..."
             disabled={isProcessing}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+            }}
             className="flex-1 bg-transparent outline-none text-gray-900 placeholder-gray-500"
           />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={isProcessing || !text.trim()}
+            className="text-indigo-600 disabled:text-gray-400"
+            aria-label="Send"
+          >
+            <Send size={18} />
+          </button>
         </div>
 
         {/* Timer */}

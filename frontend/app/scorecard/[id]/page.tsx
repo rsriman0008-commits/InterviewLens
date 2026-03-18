@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { firestoreService } from '@/lib/firestore-service';
 import { Interview } from '@/types';
 import { Download, Home, RefreshCw, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -16,7 +14,6 @@ interface ExpandedSections {
 export default function ScorecardPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
   const [interview, setInterview] = useState<Interview | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedSections, setExpandedSections] = useState<ExpandedSections>({});
@@ -24,23 +21,28 @@ export default function ScorecardPage() {
   const interviewId = params.id as string;
 
   useEffect(() => {
-    if (user && interviewId) {
-      loadInterview();
-    }
-  }, [user, interviewId]);
+    if (interviewId) loadInterview();
+  }, [interviewId]);
 
   const loadInterview = async () => {
     try {
       setLoading(true);
-      if (user) {
-        const data = await firestoreService.getInterview(user.uid, interviewId);
-        if (data) {
-          setInterview(data);
-        } else {
-          toast.error('Interview not found');
-          router.push('/home');
-        }
+      const raw =
+        localStorage.getItem(`interviewlens:interview:${interviewId}`) || localStorage.getItem('interviewlens:lastInterview');
+      if (!raw) {
+        toast.error('Interview not found');
+        router.push('/home');
+        return;
       }
+
+      const parsed = JSON.parse(raw) as Interview;
+      if (parsed?.id !== interviewId) {
+        toast.error('Interview not found');
+        router.push('/home');
+        return;
+      }
+
+      setInterview(parsed);
     } catch (error) {
       toast.error('Failed to load interview');
       console.error(error);

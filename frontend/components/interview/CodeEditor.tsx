@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Editor from '@monaco-editor/react';
 import { Play, Send } from 'lucide-react';
 import { PROGRAMMING_LANGUAGES } from '@/lib/constants';
@@ -63,6 +63,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           value={code}
           onChange={(value: string | undefined) => onCodeChange(value || '')}
           theme="light"
+          loading={
+            <div className="h-full w-full flex items-center justify-center text-gray-600">
+              Loading editor...
+            </div>
+          }
           options={{
             minimap: { enabled: false },
             fontSize: 13,

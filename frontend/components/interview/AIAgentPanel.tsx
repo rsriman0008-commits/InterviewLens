@@ -1,10 +1,15 @@
 import React from 'react';
 import { Volume2, Loader } from 'lucide-react';
 
+export type TranscriptItem = {
+  speaker: 'ai' | 'user';
+  text: string;
+};
+
 interface AIAgentPanelProps {
   currentQuestion: string;
   isPlaying: boolean;
-  transcript: string[];
+  transcript: TranscriptItem[];
   isListening: boolean;
   aiIsSpeaking: boolean;
 }
@@ -53,15 +58,15 @@ export const AIAgentPanel: React.FC<AIAgentPanelProps> = ({
               <div
                 key={index}
                 className={`p-3 rounded-lg ${
-                  index % 2 === 0
+                  item.speaker === 'ai'
                     ? 'bg-indigo-50 border-l-4 border-indigo-600'
                     : 'bg-gray-50 border-l-4 border-gray-300'
                 }`}
               >
                 <p className="text-xs font-semibold text-gray-600 mb-1">
-                  {index % 2 === 0 ? 'AI' : 'You'}
+                  {item.speaker === 'ai' ? 'AI' : 'You'}
                 </p>
-                <p className="text-sm text-gray-900">{item}</p>
+                <p className="text-sm text-gray-900">{item.text}</p>
               </div>
             ))
           )}
