@@ -246,3 +246,72 @@ Return JSON:
             "overallFeedback": "Technical error occurred",
             "resources": []
         }
+
+
+def run_code(code: str, language: str, question: str) -> dict:
+    """Analyze code using Gemini and predict output or detect errors."""
+    try:
+        if not config.GEMINI_API_KEY:
+            return {
+                "success": False,
+                "output": "Code execution service unavailable (no API key configured).",
+                "error": "Service unavailable",
+            }
+
+        model = genai.GenerativeModel('gemini-1.5-flash')
+
+        prompt = f"""You are a code execution engine. Carefully analyze the following {language} code.
+
+```{language}
+{code}
+```
+
+The coding question context is: {question}
+
+Your job:
+1. Check for syntax errors first. If there are syntax errors, return them.
+2. Check for runtime errors (e.g. undefined variables, type errors, index out of bounds). If found, return them.
+3. If the code is valid, trace through it step by step and determine what the output would be when executed.
+4. If the code has no print/console output, describe what it returns.
+
+Return ONLY a JSON object with these exact fields:
+- "success": true if code runs without errors, false if it has errors
+- "output": the actual console output the code would produce (or return value if no print). If there are errors, put the error message here.
+- "error": null if no errors, or a short error description like "SyntaxError", "TypeError", "RuntimeError" etc.
+
+Examples:
+- Valid code: {{"success": true, "output": "Hello World\\n5", "error": null}}
+- Syntax error: {{"success": false, "output": "SyntaxError: unexpected indent at line 3", "error": "SyntaxError"}}
+- Runtime error: {{"success": false, "output": "TypeError: unsupported operand type(s) for +: 'int' and 'str'", "error": "TypeError"}}
+- Empty/wrong code: {{"success": false, "output": "The code does not produce any output and does not solve the given problem.", "error": "NoOutput"}}
+
+Return ONLY the JSON, no markdown, no explanation."""
+
+        response = model.generate_content(prompt)
+
+        import json
+        text = response.text.strip()
+        # Strip markdown code fences if present
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
+
+        try:
+            result = json.loads(text)
+        except Exception:
+            result = {
+                "success": False,
+                "output": text,
+                "error": "ParseError",
+            }
+
+        return result
+    except Exception as e:
+        print(f"Error running code: {e}")
+        return {
+            "success": False,
+            "output": f"Code analysis failed: {str(e)}",
+            "error": "ServiceError",
+        }

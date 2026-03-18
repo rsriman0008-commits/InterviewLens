@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 import json
 from config import config
-from gemini_service import generate_question, evaluate_code, generate_feedback
+from gemini_service import generate_question, evaluate_code, generate_feedback, run_code
 from elevenlabs_service import elevenlabs_service
 
 # Create FastAPI app
@@ -43,6 +43,11 @@ class GenerateFeedbackRequest(BaseModel):
     codeScores: List[dict]
     voiceTranscripts: List[str]
     role: str
+
+class RunCodeRequest(BaseModel):
+    code: str
+    language: str
+    question: str = ""
 
 class TextToSpeechRequest(BaseModel):
     text: str
@@ -85,6 +90,21 @@ async def api_evaluate_code(request: CodeEvaluationRequest):
             question=request.question,
             language=request.language,
             role=request.role
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== CODE EXECUTION ====================
+
+@app.post("/api/run-code")
+async def api_run_code(request: RunCodeRequest):
+    """Analyze and predict code execution output using Gemini"""
+    try:
+        result = run_code(
+            code=request.code,
+            language=request.language,
+            question=request.question
         )
         return result
     except Exception as e:

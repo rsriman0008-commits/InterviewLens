@@ -55,6 +55,12 @@ export const apiService = {
     return response.data;
   },
 
+  // Run code (analyze via Gemini)
+  runCode: async (payload: { code: string; language: string; question: string }) => {
+    const response = await apiClient.post('/api/run-code', payload);
+    return response.data;
+  },
+
   // Speech to text
   speechToText: async (audioBlob: Blob) => {
     const formData = new FormData();

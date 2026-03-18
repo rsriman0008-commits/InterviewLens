@@ -315,12 +315,28 @@ export default function InterviewSessionPage() {
   };
 
   const handleRunCode = async () => {
-    // Simulate code execution
+    if (!code.trim()) {
+      toast.error('Please write some code before running');
+      return;
+    }
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setOutput('Code executed successfully!\nOutput: [1, 2, 3, 4, 5]');
-      toast.success('Code executed');
+      const result = await apiService.runCode({
+        code,
+        language: selectedLanguage,
+        question: currentQuestion?.question || '',
+      });
+
+      if (result.success) {
+        setOutput(`✅ Output:\n${result.output}`);
+        toast.success('Code executed successfully');
+      } else {
+        setOutput(`❌ Error: ${result.error || 'Unknown error'}\n\n${result.output}`);
+        toast.error(result.error || 'Code has errors');
+      }
+    } catch (error) {
+      setOutput('❌ Failed to analyze code. Please try again.');
+      toast.error('Code execution failed');
     } finally {
       setLoading(false);
     }
@@ -379,13 +395,13 @@ export default function InterviewSessionPage() {
           userCode: code,
           userCodeLanguage: selectedLanguage,
           codeScore: {
-            correctness: evaluation.correctness ?? 0,
-            timeComplexity: evaluation.timeComplexity ?? 'O(n)',
-            spaceComplexity: evaluation.spaceComplexity ?? 'O(1)',
-            bugs: evaluation.bugs ?? [],
-            suggestions: evaluation.suggestions ?? [],
+            correctness: evaluation?.correctness ?? 0,
+            timeComplexity: evaluation?.timeComplexity ?? 'O(n)',
+            spaceComplexity: evaluation?.spaceComplexity ?? 'O(1)',
+            bugs: evaluation?.bugs ?? [],
+            suggestions: evaluation?.suggestions ?? [],
           },
-          followUpQuestions: evaluation.followupQuestions ?? [],
+          followUpQuestions: evaluation?.followupQuestions ?? [],
         };
 
         // Apply updates to in-memory interview immediately (avoid setState timing issues)
@@ -401,8 +417,8 @@ export default function InterviewSessionPage() {
 
         // Ask a follow-up about the submitted solution (and speak it)
         const followUpText =
-          evaluation.followupQuestions?.[0] ||
-          evaluation.suggestions?.[0] ||
+          evaluation?.followupQuestions?.[0] ||
+          evaluation?.suggestions?.[0] ||
           'Explain your approach and analyze the time and space complexity.';
         await sayAsAi(followUpText);
 

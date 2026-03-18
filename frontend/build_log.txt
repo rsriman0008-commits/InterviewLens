@@ -1,0 +1,71 @@
+
+> interviewlens-frontend@1.0.0 build
+> next build
+
+ ⚠ Disabling SWC Minifer will not be an option in the next major version. Please report any issues you may be experiencing to https://github.com/vercel/next.js/issues
+  ▲ Next.js 14.2.35
+  - Environments: .env.local, .env.production
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/9) ...
+   Generating static pages (2/9) 
+   Generating static pages (4/9) 
+   Generating static pages (6/9) 
+FirebaseError: Firebase: Error (auth/invalid-api-key).
+    at createErrorInternal (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:496:40)
+    at _assert (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:500:15)
+    at Component.instanceFactory (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:7032:9)
+    at Provider.getOrInitializeService (file:///D:/vs%20hack2/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:290:39)
+    at Provider.initialize (file:///D:/vs%20hack2/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:234:31)
+    at initializeAuth (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:3367:27)
+    at getAuth (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:7093:18)
+    at D:\vs hack2\frontend\.next\server\app\auth\page.js:1:13983 {
+  code: 'auth/invalid-api-key',
+  customData: { appName: '[DEFAULT]' },
+  digest: '3060230975'
+}
+
+Error occurred prerendering page "/auth". Read more: https://nextjs.org/docs/messages/prerender-error
+
+FirebaseError: Firebase: Error (auth/invalid-api-key).
+    at createErrorInternal (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:496:40)
+    at _assert (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:500:15)
+    at Component.instanceFactory (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:7032:9)
+    at Provider.getOrInitializeService (file:///D:/vs%20hack2/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:290:39)
+    at Provider.initialize (file:///D:/vs%20hack2/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:234:31)
+    at initializeAuth (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:3367:27)
+    at getAuth (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:7093:18)
+    at D:\vs hack2\frontend\.next\server\app\auth\page.js:1:13983
+FirebaseError: Firebase: Error (auth/invalid-api-key).
+    at createErrorInternal (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:496:40)
+    at _assert (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:500:15)
+    at Component.instanceFactory (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:7032:9)
+    at Provider.getOrInitializeService (file:///D:/vs%20hack2/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:290:39)
+    at Provider.initialize (file:///D:/vs%20hack2/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:234:31)
+    at initializeAuth (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:3367:27)
+    at getAuth (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:7093:18)
+    at D:\vs hack2\frontend\.next\server\app\profile\page.js:1:14431 {
+  code: 'auth/invalid-api-key',
+  customData: { appName: '[DEFAULT]' },
+  digest: '1585637247'
+}
+
+Error occurred prerendering page "/profile". Read more: https://nextjs.org/docs/messages/prerender-error
+
+FirebaseError: Firebase: Error (auth/invalid-api-key).
+    at createErrorInternal (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:496:40)
+    at _assert (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:500:15)
+    at Component.instanceFactory (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:7032:9)
+    at Provider.getOrInitializeService (file:///D:/vs%20hack2/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:290:39)
+    at Provider.initialize (file:///D:/vs%20hack2/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:234:31)
+    at initializeAuth (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:3367:27)
+    at getAuth (file:///D:/vs%20hack2/frontend/node_modules/@firebase/auth/dist/node-esm/totp-219bb96f.js:7093:18)
+    at D:\vs hack2\frontend\.next\server\app\profile\page.js:1:14431
+ ✓ Generating static pages (9/9)
+
+> Export encountered errors on following paths:
+	/auth/page: /auth
+	/profile/page: /profile
