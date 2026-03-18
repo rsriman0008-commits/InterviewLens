@@ -263,7 +263,7 @@ vercel deploy
 # Set environment variables in Vercel dashboard
 ```
 
-### Backend - Railway / Render
+### Backend -  Render
 1. Push code to GitHub
 2. Connect repository to Railway/Render
 3. Set environment variables
