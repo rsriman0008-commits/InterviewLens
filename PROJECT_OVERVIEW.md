@@ -105,95 +105,6 @@
 
 ---
 
-## 🚀 How to Deploy
-
-### Prerequisites
-- GitHub account (for code hosting)
-- Vercel account (free - for frontend hosting)
-- Render account (free - for backend hosting)
-- Firebase project (already set up)
-
-### Deployment Flow (10 minutes)
-
-#### Step 1: Prepare Code
-```bash
-# Frontend and backend are ready
-# Environment files are configured
-# Fire credentials are in place
-```
-
-#### Step 2: GitHub (Push code)
-```bash
-# Navigate to each directory, init git, and push
-git push to GitHub
-```
-
-#### Step 3: Vercel (Deploy frontend)
-1. Connect GitHub repo
-2. Add environment variables
-3. Deploy (takes 2-3 minutes)
-4. Your URL: `https://your-app.vercel.app`
-
-#### Step 4: Render (Deploy backend)
-1. Connect GitHub repo
-2. Set build & start commands
-3. Add environment variables
-4. Deploy (takes 5-10 minutes)
-5. Your URL: `https://your-app.onrender.com`
-
-#### Step 5: Connect
-- Update Vercel with Render URL
-- Update Render with Vercel URL
-- Test the full flow
-
-**Full deployment takes ~20-30 minutes end-to-end.**
-
----
-
-## 💾 Data Flow & Storage
-
-### What Gets Stored?
-
-#### Firebase Firestore (Database)
-```
-/users/{userID}
-  ├── name: "John Doe"
-  ├── email: "john@gmail.com"
-  ├── college: "MIT"
-  ├── branch: "CSE"
-  ├── year: "2024"
-  └── avatarURL: "gs://bucket/path"
-
-/interviews/{interviewID}
-  ├── userID: "user123"
-  ├── role: "Backend Engineer"
-  ├── score: 85
-  ├── timestamp: 1702045640000
-  ├── questions: [Q1, Q2, Q3]
-  ├── answers: [A1, A2, A3]
-  ├── feedback: {...}
-  └── breakdown: {communication: 22, coding: 18, ...}
-```
-
-#### Firebase Authentication
-- Email/Password login
-- Google OAuth 2.0
-- Secure session management
-- Password reset via email
-
-#### Firebase Storage
-- Profile avatars (max 5MB)
-- User-specific folders
-- Auto-expiring URLs for security
-
-### API Calls Made
-
-**Per Interview Session (~30 minutes):**
-- 5-10 Gemini API calls (~$0.01-0.05)
-- 3-5 ElevenLabs TTS calls (~0.5-1 credit)
-- 50+ Firestore calls (free tier covers 50k/day)
-
----
 
 ## 🔐 Security & Privacy
 
@@ -208,11 +119,6 @@ git push to GitHub
 - HTTPS for all connections
 - API keys restricted by referrer
 - Firebase Rules limit data access
-
-### Environment Variables (Never commit!)
-- `.env` and `.env.local` in `.gitignore`
-- Secrets managed separately in Vercel/Render
-- Firebase credentials in .gitignore
 
 ---
 
@@ -402,46 +308,9 @@ git push to GitHub
 
 ---
 
-## 🐛 Troubleshooting
 
-| Problem | Cause | Solution |
-|---------|-------|----------|
-| Firebase auth error | Invalid API key | Check `.env.local` has correct key |
-| CORS errors | Backend URL mismatch | Update `NEXT_PUBLIC_API_URL` |
-| Interview features fail | API key invalid | Check Gemini/ElevenLabs keys |
-| Avatar won't upload | Storage bucket issue | Verify Firebase Storage rules |
-| No voice output | ElevenLabs key expired | Regenerate API key |
-| Slow scoring | AI processing | Gemini is working, be patient |
 
----
 
-## 📚 Documentation Files
-
-In your `d:\vs hack2\` folder:
-
-1. **`DEPLOYMENT_GUIDE.md`** - Complete deployment overview
-2. **`DEPLOYMENT_STEPS.md`** - Step-by-step instructions
-3. **`FIX_FIREBASE_ERROR.md`** - Firebase troubleshooting
-4. **`README.md`** - This file
-5. **`frontend/README.md`** - Frontend-specific docs
-6. **`backend/README.md`** - Backend-specific docs
-
----
-
-## 🎯 Next Steps
-
-### To Deploy Today:
-1. Read `DEPLOYMENT_STEPS.md`
-2. Follow the 9 steps (takes ~30 minutes)
-3. Share your live URL!
-
-### To Improve:
-- Add more interview roles
-- Implement interview recording
-- Add peer interview feature
-- Implement interview scheduling
-- Add resume feedback
-- Create practice mode with hints
 
 ---
 
