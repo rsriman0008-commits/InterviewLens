@@ -135,69 +135,6 @@ d:/vs hack2/
 3. **ElevenLabs** - Text-to-speech, speech-to-text
 4. **Web Speech API** - Browser-native speech recognition
 
-## 📋 Setup Instructions
-
-### Step 1: Clone & Setup Frontend
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install --legacy-peer-deps
-
-# Create .env.local
-cp .env.example .env.local
-
-# Fill in your Firebase and API credentials
-```
-
-### Step 2: Setup Backend
-
-```bash
-cd ../backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create .env file
-cp .env.example .env
-
-# Download Firebase credentials
-# Place firebase-credentials.json in backend folder
-```
-
-### Step 3: Get API Keys
-
-1. **Firebase** - [Firebase Console](https://console.firebase.google.com)
-   - Get Web API credentials
-   - Download service account key for backend
-
-2. **Google Gemini** - [Google AI Studio](https://aistudio.google.com/app/apikey)
-   - Get free API key
-
-3. **ElevenLabs** - [ElevenLabs Dashboard](https://elevenlabs.io)
-   - Get free API key
-
-### Step 4: Run the Application
-
-**Terminal 1 - Backend:**
-```bash
-cd backend
-source venv/bin/activate
-python main.py
-# Server runs on http://localhost:8000
-```
-
-**Terminal 2 - Frontend:**
-```bash
-cd frontend
-npm run dev
-# App runs on http://localhost:3000
-```
 
 ## 🎮 Usage
 
@@ -254,35 +191,6 @@ Each interview generates a score out of 100, broken into 4 categories:
 - Firestore security rules (setup required)
 - HTTPS support for production
 
-## 🚀 Deployment
-
-### Frontend - Vercel
-```bash
-cd frontend
-vercel deploy
-# Set environment variables in Vercel dashboard
-```
-
-### Backend -  Render
-1. Push code to GitHub
-2. Connect repository to Railway/Render
-3. Set environment variables
-4. Auto-deploy on push
-
-## 🐛 Common Issues & Solutions
-
-| Issue | Solution |
-|-------|----------|
-| Module not found | `npm install --legacy-peer-deps` |
-| Firebase errors | Check `.env` credentials and service account JSON |
-| CORS issues | Add frontend URL to `ALLOWED_ORIGINS` in backend |
-| Voice not working | Check microphone permissions and HTTPS (in prod) |
-| API rate limits | Upgrade API plans on Gemini/ElevenLabs |
-
-## 📚 Documentation
-
-- **Frontend:** See [frontend/README.md](frontend/README.md)
-- **Backend:** See [backend/README.md](backend/README.md)
 
 ## 🎯 Future Roadmap
 
