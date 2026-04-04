@@ -2,65 +2,64 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { firestoreService } from '@/lib/firestore-service';
 import { Interview } from '@/types';
-import { Play, TrendingUp } from 'lucide-react';
+import { Play, TrendingUp, LogOut } from 'lucide-react';
 import Link from 'next/link';
-
-// Mock user data (since we're skipping auth for now)
-const mockUser = {
-  uid: 'user-123',
-  name: 'John Developer',
-  email: 'john@example.com',
-  college: 'MIT',
-  branch: 'Computer Science',
-  year: '2024',
-};
-
-// Mock recent interviews
-const mockRecentInterviews: Interview[] = [
-  {
-    id: '1',
-    userId: 'user-123',
-    role: 'Backend Engineer',
-    totalScore: 85,
-    startTime: new Date(Date.now() - 86400000),
-    communicationScore: 22,
-    problemSolvingScore: 20,
-    codeQualityScore: 21,
-    technicalKnowledgeScore: 22,
-    questions: [],
-    feedback: { totalScore: 85, breakdown: { communication: 22, problemSolving: 20, codeQuality: 21, technicalKnowledge: 22 }, strengths: [], improvements: [], overallFeedback: '' },
-    status: 'completed',
-  },
-];
+import toast from 'react-hot-toast';
 
 export default function HomePage() {
   const router = useRouter();
+  const { user, profile, loading, logout, isAuthenticated } = useAuth();
   const [recentInterviews, setRecentInterviews] = useState<Interview[]>([]);
   const [averageScore, setAverageScore] = useState(0);
-  const [profile] = useState(mockUser);
   const [loadingInterviews, setLoadingInterviews] = useState(false);
-  const user = mockUser;
 
+  // Redirect to auth if not authenticated
   useEffect(() => {
-    loadInterviews();
-  }, []);
+    if (!loading && !isAuthenticated) {
+      router.push('/auth');
+    }
+  }, [loading, isAuthenticated, router]);
+
+  // Load interviews from Firestore
+  useEffect(() => {
+    if (user) {
+      loadInterviews();
+    }
+  }, [user]);
 
   const loadInterviews = async () => {
+    if (!user) return;
     try {
       setLoadingInterviews(true);
-      setRecentInterviews(mockRecentInterviews);
+      const interviews = await firestoreService.getRecentInterviews(user.uid, 5);
+      setRecentInterviews(interviews);
       const avg =
-        mockRecentInterviews.length === 0
+        interviews.length === 0
           ? 0
           : Math.round(
-              mockRecentInterviews.reduce((sum, i) => sum + (i.totalScore ?? 0), 0) / mockRecentInterviews.length
+              interviews.reduce((sum, i) => sum + (i.totalScore ?? 0), 0) / interviews.length
             );
       setAverageScore(avg);
     } catch (error) {
       console.error('Error loading interviews:', error);
+      // If Firestore index not ready or no data, just show empty
+      setRecentInterviews([]);
+      setAverageScore(0);
     } finally {
       setLoadingInterviews(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully');
+      router.push('/auth');
+    } catch (error) {
+      toast.error('Failed to logout');
     }
   };
 
@@ -69,6 +68,29 @@ export default function HomePage() {
     if (score >= 40) return 'bg-yellow-100 text-yellow-800';
     return 'bg-red-100 text-red-800';
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (redirect happening)
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  const displayName = profile?.fullName || user?.displayName || user?.email || 'User';
+  const displayEmail = profile?.email || user?.email || '';
+  const displayCollege = profile?.college || 'Not set';
+  const displayBranch = profile?.branch || 'Not set';
+  const displayYear = profile?.yearOfStudy || 'Not set';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -88,10 +110,18 @@ export default function HomePage() {
               className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
             >
               <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
-                {profile?.name?.charAt(0).toUpperCase() || 'U'}
+                {displayName.charAt(0).toUpperCase()}
               </div>
-              <span className="font-medium">{profile?.name}</span>
+              <span className="font-medium hidden sm:inline">{displayName}</span>
             </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition"
+              title="Logout"
+            >
+              <LogOut size={18} />
+              <span className="hidden sm:inline text-sm">Logout</span>
+            </button>
           </div>
         </div>
       </nav>
@@ -104,24 +134,24 @@ export default function HomePage() {
             <div className="bg-white rounded-xl shadow-md p-6">
               <div className="flex flex-col items-center text-center mb-6">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center text-white text-2xl font-bold mb-4">
-                  {profile?.name?.charAt(0).toUpperCase() || 'U'}
+                  {displayName.charAt(0).toUpperCase()}
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">{profile?.name}</h2>
-                <p className="text-gray-600 text-sm">{profile?.email}</p>
+                <h2 className="text-xl font-bold text-gray-900">{displayName}</h2>
+                <p className="text-gray-600 text-sm">{displayEmail}</p>
               </div>
 
               <div className="space-y-3 border-t border-gray-200 pt-6">
                 <div>
                   <p className="text-gray-600 text-sm">College</p>
-                  <p className="text-gray-900 font-medium">{profile?.college}</p>
+                  <p className="text-gray-900 font-medium">{displayCollege}</p>
                 </div>
                 <div>
                   <p className="text-gray-600 text-sm">Branch</p>
-                  <p className="text-gray-900 font-medium">{profile?.branch}</p>
+                  <p className="text-gray-900 font-medium">{displayBranch}</p>
                 </div>
                 <div>
                   <p className="text-gray-600 text-sm">Year of Study</p>
-                  <p className="text-gray-900 font-medium">{profile?.year}</p>
+                  <p className="text-gray-900 font-medium">{displayYear}</p>
                 </div>
               </div>
 
@@ -138,7 +168,7 @@ export default function HomePage() {
 
               <Link
                 href="/profile"
-                className="w-full mt-6 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition text-center"
+                className="block w-full mt-6 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition text-center"
               >
                 View Full Profile
               </Link>

@@ -1,16 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useInterviewStore } from '@/store/interview-store';
+import { useAuth } from '@/hooks/useAuth';
 import { INTERVIEW_ROLES } from '@/lib/constants';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SelectRolePage() {
   const router = useRouter();
+  const { loading, isAuthenticated } = useAuth();
   const { setSelectedRole } = useInterviewStore();
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.push('/auth');
+    }
+  }, [loading, isAuthenticated, router]);
 
   const handleSelectRole = (roleId: string) => {
     setSelectedRoleId(roleId);

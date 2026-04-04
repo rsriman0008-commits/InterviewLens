@@ -4,17 +4,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useInterviewStore } from '@/store/interview-store';
+import { useAuth } from '@/hooks/useAuth';
 import { apiService } from '@/lib/api-service';
 import { voiceService } from '@/lib/voice-service';
+import { firestoreService } from '@/lib/firestore-service';
 import { Interview, CodeQuestion } from '@/types';
 import { AIAgentPanel, TranscriptItem } from '@/components/interview/AIAgentPanel';
 import { InterviewBottomBar } from '@/components/interview/InterviewBottomBar';
 import toast from 'react-hot-toast';
 
 type InterviewPhase = 'icebreaker' | 'introduction' | 'coding' | 'wrapup';
-
-// Mock user for demo
-const mockUserId = 'demo-user-' + Math.random().toString(36).substr(2, 9);
 
 const ICEBREAKER_QUESTIONS = 2;
 const CODING_QUESTIONS = 3;
@@ -33,7 +32,8 @@ const LazyCodeEditor = dynamic(
 
 export default function InterviewSessionPage() {
   const router = useRouter();
-  const userId = mockUserId;
+  const { user, profile, loading: authLoading, isAuthenticated } = useAuth();
+  const userId = user?.uid || 'anonymous';
   const {
     selectedRole,
     currentPhase,
@@ -140,6 +140,13 @@ export default function InterviewSessionPage() {
     await sayAsAi(followUp);
   };
 
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth');
+    }
+  }, [authLoading, isAuthenticated, router]);
+
   // Initialize interview
   useEffect(() => {
     if (!selectedRole) {
@@ -232,12 +239,12 @@ export default function InterviewSessionPage() {
         role: selectedRole || '',
         phase: currentPhase || 'icebreaker',
         questionNumber: currentQuestionIndex + 1,
-        userProfile: {
-          fullName: 'Student',
-          college: 'University',
-          branch: 'CSE',
-          yearOfStudy: '3',
-        },
+        userProfile: profile ? {
+          fullName: profile.fullName || 'Student',
+          college: profile.college || 'University',
+          branch: profile.branch || 'CSE',
+          yearOfStudy: String(profile.yearOfStudy || '3'),
+        } : undefined,
       });
 
       const newQuestion: CodeQuestion = {
@@ -519,6 +526,10 @@ export default function InterviewSessionPage() {
         try {
           localStorage.setItem(`interviewlens:interview:${interviewRef.current}`, JSON.stringify(completed));
           localStorage.setItem('interviewlens:lastInterview', JSON.stringify(completed));
+          // Also save to Firestore if user is authenticated
+          if (user) {
+            firestoreService.createInterview(user.uid, completed).catch(console.error);
+          }
         } catch {
           // ignore
         }

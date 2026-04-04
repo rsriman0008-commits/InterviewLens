@@ -12,7 +12,7 @@ import Link from 'next/link';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, profile, logout } = useAuth();
+  const { user, profile, loading: authLoading, logout, isAuthenticated } = useAuth();
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -24,6 +24,13 @@ export default function ProfilePage() {
     branch: '',
     yearOfStudy: '',
   });
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth');
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   // Load data
   useEffect(() => {

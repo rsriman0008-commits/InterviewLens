@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection - each user can only read/write their own document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Interviews subcollection under each user
+      match /interviews/{interviewId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Top-level interviews collection (if used)
+    match /interviews/{interviewId} {
+      allow read: if request.auth != null && resource.data.userID == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userID == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userID == request.auth.uid;
+    }
+  }
+}
