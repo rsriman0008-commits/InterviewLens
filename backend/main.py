@@ -129,7 +129,7 @@ async def api_generate_feedback(request: GenerateFeedbackRequest):
 # ==================== TEXT TO SPEECH ====================
 
 @app.post("/api/text-to-speech")
-async def api_text_to_speech(request: TextToSpeechRequest):
+def api_text_to_speech(request: TextToSpeechRequest):
     """Convert text to speech using ElevenLabs"""
     try:
         audio_bytes = elevenlabs_service.text_to_speech(
@@ -147,7 +147,7 @@ async def api_text_to_speech(request: TextToSpeechRequest):
 # ==================== SPEECH TO TEXT ====================
 
 @app.post("/api/speech-to-text")
-async def api_speech_to_text(audio: UploadFile = File(...)):
+def api_speech_to_text(audio: UploadFile = File(...)):
     """Convert speech to text (placeholder - integrate with Whisper or similar)"""
     try:
         # This is a placeholder implementation

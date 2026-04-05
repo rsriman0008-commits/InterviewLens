@@ -1,5 +1,28 @@
 import google.generativeai as genai
 from config import config
+import json
+import re
+
+def _extract_json(text: str) -> dict:
+    """Safely extract JSON from Gemini response, handling markdown blocks."""
+    text = text.strip()
+    if text.startswith("```"):
+        # Strip markdown fences
+        text = re.sub(r"^```(?:json)?", "", text)
+        text = re.sub(r"```$", "", text).strip()
+    
+    # Try parsing
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # One last attempt to find a JSON object in the text
+        match = re.search(r'(\{.*\})', text, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+        raise ValueError("Could not parse JSON from response")
 
 # Initialize Gemini
 def init_gemini():
@@ -122,10 +145,10 @@ Format: {{"question": "...", "hints": [...], "expectedTopics": [...], "example":
         response = model.generate_content(prompt)
         
         # Parse response
-        import json
         try:
-            result = json.loads(response.text)
-        except:
+            result = _extract_json(response.text)
+        except Exception as e:
+            print(f"Failed to parse Gemini response: {e}, falling back.")
             result = {"question": response.text, "hints": [], "expectedTopics": []}
         
         return result
@@ -164,10 +187,10 @@ Return a JSON object:
         
         response = model.generate_content(prompt)
         
-        import json
         try:
-            result = json.loads(response.text)
-        except:
+            result = _extract_json(response.text)
+        except Exception as e:
+            print(f"Failed to parse Gemini response: {e}, falling back.")
             result = {
                 "correctness": 5,
                 "timeComplexity": "Unknown",
@@ -217,10 +240,10 @@ Return JSON:
         
         response = model.generate_content(prompt)
         
-        import json
         try:
-            result = json.loads(response.text)
-        except:
+            result = _extract_json(response.text)
+        except Exception as e:
+            print(f"Failed to parse Gemini response: {e}, falling back.")
             result = {
                 "totalScore": 50,
                 "breakdown": {
@@ -289,18 +312,17 @@ Return ONLY the JSON, no markdown, no explanation."""
 
         response = model.generate_content(prompt)
 
-        import json
-        text = response.text.strip()
-        # Strip markdown code fences if present
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-            if text.endswith("```"):
-                text = text[:-3]
-            text = text.strip()
-
         try:
-            result = json.loads(text)
+            result = _extract_json(response.text)
         except Exception:
+            text = response.text.strip()
+            # Try to clean up anyway for fallback
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+                if text.endswith("```"):
+                    text = text[:-3]
+                text = text.strip()
+                
             result = {
                 "success": False,
                 "output": text,
