@@ -1,5 +1,6 @@
 import google.generativeai as genai
 from config import config
+from logger import app_logger
 import json
 import re
 
@@ -29,13 +30,13 @@ def init_gemini():
     """Initialize Gemini API"""
     try:
         if not config.GEMINI_API_KEY:
-            print("Gemini API key not set; using local fallback questions")
+            app_logger.warning("Gemini API key not set; using local fallback questions")
             return
 
         genai.configure(api_key=config.GEMINI_API_KEY)
-        print("Gemini API initialized successfully")
+        app_logger.info("Gemini API initialized successfully")
     except Exception as e:
-        print(f"Gemini initialization error: {e}")
+        app_logger.error(f"Gemini initialization error: {e}")
 
 init_gemini()
 
@@ -148,12 +149,12 @@ Format: {{"question": "...", "hints": [...], "expectedTopics": [...], "example":
         try:
             result = _extract_json(response.text)
         except Exception as e:
-            print(f"Failed to parse Gemini response: {e}, falling back.")
+            app_logger.warning(f"Failed to parse Gemini response: {e}, falling back.")
             result = {"question": response.text, "hints": [], "expectedTopics": []}
         
         return result
     except Exception as e:
-        print(f"Error generating question: {e}")
+        app_logger.error(f"Error generating question: {e}")
         # Keep localhost usable even if Gemini fails (quota, network, invalid key, etc.)
         return _fallback_question(role=role, phase=phase, question_number=question_number, user_profile=user_profile)
 
@@ -190,7 +191,7 @@ Return a JSON object:
         try:
             result = _extract_json(response.text)
         except Exception as e:
-            print(f"Failed to parse Gemini response: {e}, falling back.")
+            app_logger.warning(f"Failed to parse Gemini response: {e}, falling back.")
             result = {
                 "correctness": 5,
                 "timeComplexity": "Unknown",
@@ -202,7 +203,7 @@ Return a JSON object:
         
         return result
     except Exception as e:
-        print(f"Error evaluating code: {e}")
+        app_logger.error(f"Error evaluating code: {e}")
         return {
             "correctness": 0,
             "timeComplexity": "Error",
@@ -243,7 +244,7 @@ Return JSON:
         try:
             result = _extract_json(response.text)
         except Exception as e:
-            print(f"Failed to parse Gemini response: {e}, falling back.")
+            app_logger.warning(f"Failed to parse Gemini response: {e}, falling back.")
             result = {
                 "totalScore": 50,
                 "breakdown": {
@@ -260,7 +261,7 @@ Return JSON:
         
         return result
     except Exception as e:
-        print(f"Error generating feedback: {e}")
+        app_logger.error(f"Error generating feedback: {e}")
         return {
             "totalScore": 0,
             "breakdown": {"communication": 0, "problemSolving": 0, "codeQuality": 0, "technicalKnowledge": 0},
@@ -331,9 +332,10 @@ Return ONLY the JSON, no markdown, no explanation."""
 
         return result
     except Exception as e:
-        print(f"Error running code: {e}")
+        app_logger.error(f"Error running code: {e}")
         return {
             "success": False,
             "output": f"Code analysis failed: {str(e)}",
             "error": "ServiceError",
         }
+

@@ -1,6 +1,7 @@
 import requests
 from config import config
 from io import BytesIO
+from logger import app_logger
 
 class ElevenLabsService:
     """ElevenLabs API service for text-to-speech and speech-to-text"""
@@ -41,7 +42,7 @@ class ElevenLabsService:
             
             return response.content
         except Exception as e:
-            print(f"Error in text_to_speech: {e}")
+            app_logger.error(f"Error in text_to_speech: {e}")
             raise
     
     def get_voices(self) -> list:
@@ -52,7 +53,7 @@ class ElevenLabsService:
             response.raise_for_status()
             return response.json().get("voices", [])
         except Exception as e:
-            print(f"Error getting voices: {e}")
+            app_logger.error(f"Error getting voices: {e}")
             return []
 
 elevenlabs_service = ElevenLabsService()
